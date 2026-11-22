@@ -4,12 +4,12 @@
 #
 # Usage (as root):
 #   sudo bash setup-kiosk.sh
-#   sudo KIOSK_URL="https://visit.starlinesecuritygroup.com/monitor" bash setup-kiosk.sh
+#   sudo KIOSK_URL="https://visit.starlinesecuritygroup.com/?kiosk=monitor" bash setup-kiosk.sh
 #
 # Safe to run again: every step overwrites its own files.
 set -euo pipefail
 
-KIOSK_URL="${KIOSK_URL:-https://visit.starlinesecuritygroup.com/monitor}"
+KIOSK_URL="${KIOSK_URL:-https://visit.starlinesecuritygroup.com/?kiosk=monitor}"
 KIOSK_USER="${KIOSK_USER:-kiosk}"
 # Daily reboot hour (0-23) keeps a 1GB board fresh; set to "off" to disable.
 REBOOT_HOUR="${REBOOT_HOUR:-3}"

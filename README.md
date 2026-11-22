@@ -1,7 +1,7 @@
 # Pi-Orange-project — Lobby Queue Monitor
 
 Turns an **Orange Pi One** connected to a TV into a full-screen lobby monitor for
-`https://visit.starlinesecuritygroup.com/monitor`. It shows Now Serving / Waiting / Queued
+`https://visit.starlinesecuritygroup.com/?kiosk=monitor`. It shows Now Serving / Waiting / Queued
 and plays the page's sounds through the TV speakers, without anyone tapping the screen.
 
 ## What you need
@@ -34,7 +34,7 @@ Set these before the command, e.g. `sudo ROTATE=left bash setup-kiosk.sh`:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `KIOSK_URL` | `https://visit.starlinesecuritygroup.com/monitor` | Page to show |
+| `KIOSK_URL` | `https://visit.starlinesecuritygroup.com/?kiosk=monitor` | Page to show |
 | `ROTATE` | `normal` | `left` / `right` / `inverted` for a portrait-mounted TV |
 | `REBOOT_HOUR` | `3` | Daily reboot at 3 AM; `off` to disable |
 | `KIOSK_USER` | `kiosk` | Account that runs the display |
