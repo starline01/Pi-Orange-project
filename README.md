@@ -55,3 +55,12 @@ Running the script again is safe; use it to change any option.
 - Keep the page light (no background videos or heavy animations) — the Orange Pi One is an older CPU.
 - If the page speaks numbers with `speechSynthesis`, it uses `espeak-ng` on the board, which sounds robotic.
   Pre-recorded MP3 clips (chime, "Now serving", digits, "Counter 2") sound much better.
+
+## Website change: chime for queued numbers
+
+`site/index.html` is the Starline Queue page (`visit.starlinesecuritygroup.com`) with one addition:
+the Monitor board plays a soft two-note "ding-ding" when a new number joins a queue
+(or a ticket is put back to waiting). Called numbers keep the existing announcement;
+if both happen at once only the announcement plays, and the chime waits for any
+announcement that is still speaking. Upload it to the site in place of the current
+`index.html` (keep `announcement.mp3` next to it).

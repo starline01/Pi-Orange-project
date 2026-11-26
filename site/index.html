@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Starline Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* ============================= TOKENS ============================= */
+:root{
+  --bg:#EEF1F6;
+  --surface:#FFFFFF;
+  --surface-2:#E4E9F1;
+  --surface-3:#D9E0EB;
+  --ink:#121A2B;
+  --ink-soft:#55617A;
+  --ink-faint:#8792A6;
+  --line:#D3D9E4;
+  --accent:#22408F;
+  --accent-ink:#FFFFFF;
+  --gold:#B8862E;
+  --status-waiting:#B0740D;
+  --status-waiting-bg:#FBEACB;
+  --status-serving:#2569C7;
+  --status-serving-bg:#DCE8FB;
+  --status-done:#1E8A57;
+  --status-done-bg:#DCF3E6;
+  --status-declined:#C13B3B;
+  --status-declined-bg:#FBE0E0;
+  --dept-ops:#0E7C86;   --dept-ops-bg:#DDF1F2;
+  --dept-bil:#A5701C;   --dept-bil-bg:#F7E9CF;
+  --dept-mgr:#6B3FA0;   --dept-mgr-bg:#EBE0F5;
+  --dept-hrd:#B23A54;   --dept-hrd-bg:#F8DEE3;
+  --dept-adm:#2F7D4F;   --dept-adm-bg:#DCF0E3;
+  --shadow:0 1px 2px rgba(18,26,43,.07), 0 10px 28px -14px rgba(18,26,43,.22);
+  --radius:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1120;
+    --surface:#131C31;
+    --surface-2:#1B2740;
+    --surface-3:#24314C;
+    --ink:#EAF0FF;
+    --ink-soft:#A9B4CC;
+    --ink-faint:#71809C;
+    --line:#26304A;
+    --accent:#6C97FF;
+    --accent-ink:#08122B;
+    --gold:#E4B152;
+    --status-waiting:#E8A33D; --status-waiting-bg:#3A2A0E;
+    --status-serving:#6FA1F7; --status-serving-bg:#16243F;
+    --status-done:#57C98A;    --status-done-bg:#113522;
+    --status-declined:#E36767; --status-declined-bg:#3A1414;
+    --dept-ops:#3FC2CC; --dept-ops-bg:#0E2C2F;
+    --dept-bil:#E4B152; --dept-bil-bg:#3A2A0E;
+    --dept-mgr:#B18AE0; --dept-mgr-bg:#2A1E3D;
+    --dept-hrd:#E58BA0; --dept-hrd-bg:#3A1B22;
+    --dept-adm:#5FCB8A; --dept-adm-bg:#10301F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 34px -16px rgba(0,0,0,.65);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1120; --surface:#131C31; --surface-2:#1B2740; --surface-3:#24314C;
+  --ink:#EAF0FF; --ink-soft:#A9B4CC; --ink-faint:#71809C; --line:#26304A;
+  --accent:#6C97FF; --accent-ink:#08122B; --gold:#E4B152;
+  --status-waiting:#E8A33D; --status-waiting-bg:#3A2A0E;
+  --status-serving:#6FA1F7; --status-serving-bg:#16243F;
+  --status-done:#57C98A; --status-done-bg:#113522;
+  --status-declined:#E36767; --status-declined-bg:#3A1414;
+  --dept-ops:#3FC2CC; --dept-ops-bg:#0E2C2F;
+  --dept-bil:#E4B152; --dept-bil-bg:#3A2A0E;
+  --dept-mgr:#B18AE0; --dept-mgr-bg:#2A1E3D;
+  --dept-hrd:#E58BA0; --dept-hrd-bg:#3A1B22;
+  --dept-adm:#5FCB8A; --dept-adm-bg:#10301F;
+  color-scheme:dark;
+}
+
+/* ============================= BASE ============================= */
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  min-height:100vh;
+}
+h1,h2,h3{text-wrap:balance; margin:0;}
+.num,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;}
+.display{font-family:"Big Shoulders Display",system-ui,sans-serif; font-weight:800; letter-spacing:.01em;}
+button{font-family:inherit; cursor:pointer;}
+button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+::selection{background:var(--accent); color:var(--accent-ink);}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+}
+
+/* ============================= TOPBAR ============================= */
+#topbar{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; gap:20px;
+  padding:10px 20px;
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.brand{display:flex; align-items:center; gap:9px; margin-right:8px;}
+.brand svg{width:26px; height:26px; flex:none;}
+.brand-name{font-family:"Big Shoulders Display",sans-serif; font-weight:800; font-size:20px; letter-spacing:.02em; color:var(--ink);}
+.brand-sub{font-size:12px; color:var(--ink-faint); font-weight:600; text-transform:uppercase; letter-spacing:.12em; border-left:1px solid var(--line); padding-left:9px; margin-left:1px;}
+#viewTabs{display:flex; gap:4px; background:var(--surface-2); padding:4px; border-radius:10px;}
+#viewTabs button{
+  border:none; background:transparent; color:var(--ink-soft);
+  padding:8px 16px; border-radius:7px; font-weight:600; font-size:14px;
+}
+#viewTabs button.active{background:var(--surface); color:var(--accent); box-shadow:var(--shadow);}
+#deptContext{font-size:12.5px; color:var(--ink-soft); display:flex; align-items:center; gap:8px;}
+#deptContext button{border:none; background:none; color:var(--accent); font-weight:600; font-size:12.5px; padding:2px 4px; text-decoration:underline; text-underline-offset:2px;}
+#topbar .spacer{flex:1;}
+#clock{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--ink-soft); text-align:right; line-height:1.3;}
+#clock .day{display:block; font-size:11px; color:var(--ink-faint);}
+#fullscreenBtn{
+  flex:none; width:34px; height:34px; padding:0; margin-left:4px;
+  border:1px solid var(--line); border-radius:9px; background:var(--surface);
+  color:var(--ink-soft); display:flex; align-items:center; justify-content:center;
+}
+#fullscreenBtn:hover{color:var(--ink); border-color:var(--ink-faint);}
+#fullscreenBtn svg{width:18px; height:18px;}
+
+/* Lobby-display mode (?kiosk=monitor, used by the Starline Lobby Monitor desktop app):
+   Monitor only — no navigation, no buttons, no mouse pointer on the TV. */
+html.kiosk #viewTabs, html.kiosk #deptContext, html.kiosk #fullscreenBtn{display:none !important;}
+html.kiosk, html.kiosk *{cursor:none !important;}
+html.kiosk, html.kiosk body{overflow:hidden;}
+
+#localBanner{
+  background:var(--status-waiting-bg); color:var(--status-waiting);
+  text-align:center; font-size:13px; font-weight:600; padding:7px 12px;
+  border-bottom:1px solid var(--line);
+}
+
+main{max-width:1320px; margin:0 auto; padding:22px 20px 60px;}
+
+/* ============================= SHARED COMPONENTS ============================= */
+.panel{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:20px;
+}
+.panel-title{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-faint); margin-bottom:14px;}
+.btn{
+  border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  padding:10px 18px; border-radius:9px; font-weight:600; font-size:14.5px;
+  transition:background .12s, border-color .12s, transform .06s;
+}
+.btn:hover{border-color:var(--ink-faint);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-primary:disabled{opacity:.45; cursor:not-allowed; filter:none;}
+.btn-danger{background:var(--status-declined-bg); border-color:transparent; color:var(--status-declined);}
+.btn-ghost{background:transparent; border-color:transparent; color:var(--ink-soft);}
+.btn-ghost:hover{background:var(--surface-2);}
+.btn-sm{padding:6px 12px; font-size:13px; border-radius:7px;}
+.btn-block{width:100%;}
+
+.pill{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 9px; border-radius:99px;}
+.pill-waiting{background:var(--status-waiting-bg); color:var(--status-waiting);}
+.pill-serving{background:var(--status-serving-bg); color:var(--status-serving);}
+.pill-done{background:var(--status-done-bg); color:var(--status-done);}
+.pill-declined{background:var(--status-declined-bg); color:var(--status-declined);}
+.pill-transfer{background:var(--status-serving-bg); color:var(--status-serving);}
+.pill-accepted{background:var(--surface-2); color:var(--ink-soft);}
+
+.dept-badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:99px;}
+.dept-badge[data-dept="OPS"]{background:var(--dept-ops-bg); color:var(--dept-ops);}
+.dept-badge[data-dept="BIL"]{background:var(--dept-bil-bg); color:var(--dept-bil);}
+.dept-badge[data-dept="MGR"]{background:var(--dept-mgr-bg); color:var(--dept-mgr);}
+.dept-badge[data-dept="HRD"]{background:var(--dept-hrd-bg); color:var(--dept-hrd);}
+.dept-badge[data-dept="ADM"]{background:var(--dept-adm-bg); color:var(--dept-adm);}
+
+.dept-dot{width:9px; height:9px; border-radius:50%; flex:none;}
+.dept-dot[data-dept="OPS"]{background:var(--dept-ops);}
+.dept-dot[data-dept="BIL"]{background:var(--dept-bil);}
+.dept-dot[data-dept="MGR"]{background:var(--dept-mgr);}
+.dept-dot[data-dept="HRD"]{background:var(--dept-hrd);}
+.dept-dot[data-dept="ADM"]{background:var(--dept-adm);}
+
+/* Department availability — whether a desk is currently staffed to take visitors */
+.avail-pill{
+  display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; padding:3px 9px 3px 7px; border-radius:99px;
+  white-space:nowrap;
+}
+.avail-pill .dot{width:7px; height:7px; border-radius:50%; flex:none;}
+.avail-pill.on{background:var(--status-done-bg); color:var(--status-done);}
+.avail-pill.on .dot{background:var(--status-done); box-shadow:0 0 0 3px color-mix(in srgb, var(--status-done) 22%, transparent);}
+.avail-pill.off{background:var(--surface-2); color:var(--ink-faint);}
+.avail-pill.off .dot{background:var(--ink-faint);}
+button.avail-pill{border:none; cursor:pointer; font-family:inherit;}
+button.avail-pill:hover{filter:brightness(1.08);}
+
+/* Monitor board: dot only, no label — a live/recording-style pulse reads as
+   "active" at a glance from across the room. */
+.avail-dot{width:11px; height:11px; border-radius:50%; flex:none; background:var(--ink-faint);}
+.avail-dot.on{background:var(--status-done); animation:availPulse 1.8s cubic-bezier(.4,0,.6,1) infinite;}
+@keyframes availPulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--status-done) 55%, transparent);}
+  70%{box-shadow:0 0 0 7px color-mix(in srgb, var(--status-done) 0%, transparent);}
+  100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--status-done) 0%, transparent);}
+}
+
+.empty-state{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  padding:32px 20px; color:var(--ink-faint); text-align:center; font-size:13.5px;
+}
+.empty-state svg{width:34px; height:34px; opacity:.5; margin-bottom:4px;}
+
+label.field-label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+input[type=text], textarea, select{
+  width:100%; background:var(--surface); border:1px solid var(--line); color:var(--ink);
+  border-radius:9px; padding:10px 12px; font-size:14.5px; font-family:inherit;
+}
+input[type=text]:focus, textarea:focus, select:focus{border-color:var(--accent);}
+textarea{resize:vertical; min-height:64px;}
+select{
+  appearance:none; -webkit-appearance:none; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2355617A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 7l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; background-size:16px;
+  padding-right:36px;
+}
+select:invalid{color:var(--ink-faint);}
+
+/* ============================= MODAL ============================= */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(9,13,24,.55); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modal{
+  background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:420px; padding:22px; border:1px solid var(--line);
+}
+.modal h3{font-size:17px; margin-bottom:4px;}
+.modal p.sub{color:var(--ink-soft); font-size:13.5px; margin:0 0 16px;}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+.dept-pick-list{display:flex; flex-direction:column; gap:8px; margin:14px 0;}
+.dept-pick-row{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line);
+  border-radius:9px; background:var(--surface-2); font-weight:600; font-size:14px;
+}
+.dept-pick-row input{margin:0;}
+
+/* ============================= RECEPTION ============================= */
+.reception-grid{display:grid; grid-template-columns:1.15fr 1fr; gap:20px; align-items:start;}
+@media (max-width:920px){ .reception-grid{grid-template-columns:1fr;} }
+
+.dept-select-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:18px;}
+.dept-select-card{
+  position:relative;
+  border:2px solid var(--line); border-radius:12px; padding:14px; text-align:left;
+  background:var(--surface); display:flex; flex-direction:column; gap:4px;
+}
+.dept-select-card .code{font-family:"Big Shoulders Display"; font-size:22px; font-weight:800;}
+.dept-select-card .name{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+.dept-select-card .avail-pill{position:absolute; top:10px; right:10px; font-size:9px; padding:2px 7px 2px 6px;}
+.dept-select-card .avail-pill .dot{width:6px; height:6px;}
+.dept-select-card[data-active="1"]{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);}
+.dept-select-card[data-dept="OPS"] .code{color:var(--dept-ops);}
+.dept-select-card[data-dept="BIL"] .code{color:var(--dept-bil);}
+.dept-select-card[data-dept="MGR"] .code{color:var(--dept-mgr);}
+.dept-select-card[data-dept="HRD"] .code{color:var(--dept-hrd);}
+.dept-select-card[data-dept="ADM"] .code{color:var(--dept-adm);}
+.dept-select-card:last-child:nth-child(odd){grid-column:1/-1;}  /* an odd number of departments: the last card spans the row */
+
+.tile-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:8px;} /* 30 numbers = 6 across × 5 down */
+.tile{
+  aspect-ratio:1; border-radius:9px; border:1.5px solid var(--line); background:var(--surface-2);
+  display:flex; align-items:center; justify-content:center;
+  font-family:"IBM Plex Mono"; font-weight:600; font-size:15px; color:var(--ink-soft);
+  position:relative;
+}
+.tile[data-state="available"]{cursor:pointer;}
+.tile[data-state="available"]:hover{border-color:var(--accent); color:var(--ink);}
+.tile[data-state="selected"]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); cursor:pointer;}
+.tile[data-state="waiting"]{background:var(--status-waiting-bg); color:var(--status-waiting); border-color:transparent;}
+.tile[data-state="serving"]{background:var(--status-serving-bg); color:var(--status-serving); border-color:transparent;}
+.tile-legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-faint); margin-bottom:16px;}
+.tile-legend span{display:flex; align-items:center; gap:5px;}
+.tile-legend i{width:10px; height:10px; border-radius:3px; display:inline-block;}
+
+.ticket-row{
+  display:flex; align-items:center; gap:12px; padding:11px 6px; border-bottom:1px solid var(--line);
+  font-size:13.5px;
+}
+.ticket-row:last-child{border-bottom:none;}
+.ticket-row .code{font-family:"IBM Plex Mono"; font-weight:700; font-size:14.5px; min-width:74px;}
+.ticket-row .meta{flex:1; min-width:0;}
+.ticket-row .meta .reason{color:var(--ink-soft); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ticket-row .timer{font-family:"IBM Plex Mono"; font-size:13px; color:var(--ink-soft); min-width:56px; text-align:right;}
+
+.confirm-ticket{
+  text-align:center; padding:26px 16px; border-radius:var(--radius);
+  background:var(--surface-2); border:1px dashed var(--line); margin-bottom:16px;
+}
+.confirm-ticket .code{font-family:"Big Shoulders Display"; font-size:56px; font-weight:800; color:var(--accent); line-height:1;}
+.confirm-ticket .label{font-size:12px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-top:6px;}
+
+.decline-alert{
+  border:1px solid var(--status-declined); background:var(--status-declined-bg); border-radius:11px;
+  padding:12px 14px; margin-bottom:10px; font-size:13.5px;
+}
+.decline-alert .head{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;}
+.decline-alert .code{font-family:"IBM Plex Mono"; font-weight:700; color:var(--status-declined);}
+.decline-alert .why{color:var(--ink-soft);}
+
+/* ============================= DEPARTMENT ============================= */
+.dept-picker-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; max-width:760px; margin:60px auto;}
+.dept-picker-card{
+  border:1px solid var(--line); border-radius:16px; padding:26px 18px; text-align:center;
+  background:var(--surface); box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px; align-items:center;
+}
+.dept-picker-card .code{font-family:"Big Shoulders Display"; font-size:34px; font-weight:800;}
+.dept-picker-card[data-dept="OPS"] .code{color:var(--dept-ops);}
+.dept-picker-card[data-dept="BIL"] .code{color:var(--dept-bil);}
+.dept-picker-card[data-dept="MGR"] .code{color:var(--dept-mgr);}
+.dept-picker-card[data-dept="HRD"] .code{color:var(--dept-hrd);}
+.dept-picker-card[data-dept="ADM"] .code{color:var(--dept-adm);}
+.dept-picker-card .name{font-weight:600; font-size:14.5px;}
+.dept-picker-hint{grid-column:1/-1; text-align:center; color:var(--ink-faint); font-size:13px; margin-bottom:-4px;}
+
+.dept-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap;}
+.dept-head h1{font-family:"Big Shoulders Display"; font-size:30px;}
+.dept-head .sound-btn{display:flex; align-items:center; gap:8px;}
+
+.alert-card{
+  border-radius:var(--radius); padding:16px; margin-bottom:12px; display:flex; align-items:center; gap:16px;
+  border:1.5px solid var(--status-waiting); background:var(--status-waiting-bg);
+  animation:pulseCard 1.4s ease-in-out infinite;
+}
+.alert-card.transfer{border-color:var(--status-serving); background:var(--status-serving-bg);}
+@keyframes pulseCard{ 0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0);} 50%{box-shadow:0 0 0 6px rgba(0,0,0,.04);} }
+.alert-card .code{font-family:"Big Shoulders Display"; font-size:30px; font-weight:800; color:var(--ink); min-width:100px;}
+.alert-card .info{flex:1; min-width:0;}
+.alert-card .info .tag{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:2px;}
+.alert-card .info .line{font-size:13.5px; color:var(--ink-soft);}
+.alert-card .actions{display:flex; gap:8px; flex:none;}
+
+.serve-card{
+  border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px;
+  display:flex; align-items:center; gap:16px; background:var(--surface);
+}
+.serve-card .code{font-family:"Big Shoulders Display"; font-size:26px; font-weight:800; color:var(--accent); min-width:96px;}
+.serve-card .info{flex:1; min-width:0;}
+.serve-card .info .line{font-size:13px; color:var(--ink-soft);}
+.serve-card .timer-box{text-align:center; padding:0 14px; border-left:1px solid var(--line); border-right:1px solid var(--line);}
+.serve-card .timer-box .t{font-family:"IBM Plex Mono"; font-size:18px; font-weight:600;}
+.serve-card .timer-box .l{font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em;}
+.serve-card .actions{display:flex; gap:8px; flex-wrap:wrap; flex:none;}
+
+.pending-card{
+  border:1px dashed var(--ink-faint); border-radius:var(--radius); padding:16px; margin-bottom:12px;
+  display:flex; align-items:center; gap:16px; background:var(--surface-2);
+}
+.pending-card .code{font-family:"Big Shoulders Display"; font-size:26px; font-weight:800; min-width:96px;}
+.pending-card .spin{width:18px; height:18px; border-radius:50%; border:2.5px solid var(--line); border-top-color:var(--accent); animation:spin .8s linear infinite; flex:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.pending-card .info{flex:1; font-size:13.5px; color:var(--ink-soft);}
+
+.section-title{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); margin:22px 0 10px;}
+.section-title:first-child{margin-top:0;}
+
+/* ============================= MONITOR ============================= */
+.monitor-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:18px; flex-wrap:wrap; gap:8px;}
+.monitor-head h1{font-family:"Big Shoulders Display"; font-size:28px;}
+.monitor-head .note{font-size:12.5px; color:var(--ink-faint);}
+.monitor-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:16px;}
+@media (max-width:1100px){ .monitor-grid{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:600px){ .monitor-grid{grid-template-columns:1fr;} }
+.mon-col{
+  background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden;
+  box-shadow:var(--shadow); display:flex; flex-direction:column;
+}
+/* Flashes for ~5s right when a department accepts a visitor, so someone
+   watching the board notices their number just got called. */
+.mon-col.calling{animation:callPulse .7s ease-in-out infinite;}
+@keyframes callPulse{
+  0%,100%{box-shadow:var(--shadow);}
+  50%{box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 65%, transparent), var(--shadow);}
+}
+.mon-col.calling .now-serving .big{color:var(--accent);}
+.mon-col-head{padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:9px; justify-content:space-between;}
+.mon-col-head .lead{display:flex; align-items:center; gap:9px; min-width:0;}
+.mon-col-head .name{font-weight:700; font-size:14.5px;}
+.mon-col[data-dept="OPS"] .mon-col-head{background:var(--dept-ops-bg); color:var(--dept-ops);}
+.mon-col[data-dept="BIL"] .mon-col-head{background:var(--dept-bil-bg); color:var(--dept-bil);}
+.mon-col[data-dept="MGR"] .mon-col-head{background:var(--dept-mgr-bg); color:var(--dept-mgr);}
+.mon-col[data-dept="HRD"] .mon-col-head{background:var(--dept-hrd-bg); color:var(--dept-hrd);}
+.mon-col[data-dept="ADM"] .mon-col-head{background:var(--dept-adm-bg); color:var(--dept-adm);}
+.now-serving{padding:20px 16px 16px; text-align:center; border-bottom:1px solid var(--line);}
+.now-serving .label{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-faint); margin-bottom:6px;}
+.now-serving .big{font-family:"Big Shoulders Display"; font-size:46px; font-weight:800; color:var(--ink); line-height:1;}
+/* Full rosters — every serving/waiting number, not just a "+N more" summary
+   (a department can genuinely have 10-20 people active at once). */
+.mon-section{padding:12px 16px; border-bottom:1px solid var(--line);}
+.mon-section-head{display:flex; align-items:baseline; gap:6px; margin-bottom:8px;}
+.mon-section-head .t{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint);}
+.mon-section-head .c{font-family:"IBM Plex Mono"; font-size:11px; color:var(--ink-soft);}
+.mon-numbers{display:flex; flex-wrap:wrap; gap:6px;}
+.mon-numbers:empty::after{content:"—"; color:var(--ink-faint); font-size:13px;}
+.mon-chip{
+  font-family:"IBM Plex Mono"; font-variant-numeric:tabular-nums; font-weight:600; font-size:13px;
+  padding:4px 9px; border-radius:7px; line-height:1.3;
+}
+.mon-chip.serving{background:var(--status-serving-bg); color:var(--status-serving);}
+.mon-chip.waiting{background:var(--status-waiting-bg); color:var(--status-waiting);}
+.mon-chip.serving.latest{outline:2px solid var(--status-serving); outline-offset:1px;}
+.mon-done-row{padding:12px 16px; display:flex; align-items:baseline; justify-content:center; gap:7px;}
+.mon-done-row .n{font-family:"IBM Plex Mono"; font-size:20px; font-weight:600;}
+.mon-done-row .l{font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.07em;}
+
+/* ============================= HISTORY ============================= */
+.history-toolbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+.history-toolbar input[type=date], .history-toolbar select{width:auto; padding:9px 12px;}
+.history-toolbar select{padding-right:32px;}
+.history-daynav{display:flex; align-items:center; gap:4px;}
+.history-daynav button{width:34px; height:34px; padding:0; border-radius:8px; display:flex; align-items:center; justify-content:center;}
+.history-summary{font-size:13px; color:var(--ink-soft); margin-bottom:14px;}
+.history-summary strong{color:var(--ink); font-family:"IBM Plex Mono";}
+.history-table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow);}
+.history-table{width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap;}
+.history-table th{
+  text-align:left; padding:10px 14px; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--ink-faint); border-bottom:1px solid var(--line); background:var(--surface-2);
+}
+.history-table td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+.history-table tr:last-child td{border-bottom:none;}
+.history-table td.wrap{white-space:normal; max-width:220px;}
+.history-table .code{font-family:"IBM Plex Mono"; font-weight:700; color:var(--accent);}
+.history-table .muted{color:var(--ink-faint);}
+.history-table .stay{font-family:"IBM Plex Mono"; font-variant-numeric:tabular-nums;}
+.transfer-trail{display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:11.5px; font-weight:700;}
+.transfer-trail .arrow{color:var(--ink-faint); font-weight:400;}
+
+/* ============================= PRINT (80mm thermal receipt) ============================= */
+#print-ticket{
+  display:none; text-align:center; font-family:"IBM Plex Sans",Arial,sans-serif; color:#000;
+}
+#print-ticket .pt-header{font-size:13px; font-weight:700; letter-spacing:.05em;}
+#print-ticket .pt-sub{font-size:9px; letter-spacing:.14em; margin-top:1px;}
+#print-ticket .pt-divider{border-top:1px dashed #000; margin:7px 0;}
+#print-ticket .pt-code{font-family:"Big Shoulders Display",Arial,sans-serif; font-size:52px; font-weight:800; line-height:1;}
+#print-ticket .pt-dept{font-size:12.5px; font-weight:700; margin-top:3px; text-transform:uppercase; letter-spacing:.03em;}
+#print-ticket .pt-rows{text-align:left;}
+#print-ticket .pt-row{margin-bottom:7px;}
+#print-ticket .pt-row:last-child{margin-bottom:0;}
+#print-ticket .pt-label{display:block; font-size:8.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;}
+#print-ticket .pt-value{display:block; font-size:11.5px; margin-top:1px; word-wrap:break-word;}
+#print-ticket .pt-footer{font-size:9px; margin-top:2px; line-height:1.5;}
+@media print{
+  @page{ size:80mm auto; margin:0; }
+  body.printing{ margin:0; background:#fff; }
+  body.printing > *:not(#print-ticket){display:none !important;}
+  body.printing #print-ticket{
+    display:block !important;
+    width:80mm; box-sizing:border-box; padding:5mm 4mm 8mm;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2z" fill="var(--accent)"/></svg>
+    <span class="brand-name">Starline</span><span class="brand-sub">Queue</span>
+  </div>
+  <nav id="viewTabs">
+    <button data-view="reception">Reception</button>
+    <button data-view="department">Department</button>
+    <button data-view="monitor">Monitor</button>
+    <button data-view="history">History</button>
+  </nav>
+  <div id="deptContext"></div>
+  <div class="spacer"></div>
+  <div id="clock"></div>
+  <button id="fullscreenBtn" title="Full screen" aria-label="Full screen"></button>
+</div>
+<div id="localBanner" hidden>Offline preview — changes stay in this browser tab only. Add your Firebase project details near the top of the page's source to sync across the lobby, department, and monitor screens.</div>
+
+<main id="viewRoot"></main>
+
+<div id="print-ticket" aria-hidden="true">
+  <div class="pt-header">STARLINE SECURITY GROUP</div>
+  <div class="pt-sub">VISITOR QUEUE TICKET</div>
+  <div class="pt-divider"></div>
+  <div class="pt-code" id="ptCode">OPS-001</div>
+  <div class="pt-dept" id="ptDept">Operations Department</div>
+  <div class="pt-divider"></div>
+  <div class="pt-rows" id="ptRows"></div>
+  <div class="pt-divider"></div>
+  <div class="pt-footer">Please keep this ticket and wait for your<br>number to be called.</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<!--
+  FIREBASE SETUP (free tier) — this is what makes Reception, Department,
+  and Monitor sync live across every device. Steps:
+
+  1. Go to https://console.firebase.google.com → Add project (free "Spark" plan).
+  2. In the project, click the "</>" (web app) icon to register a web app,
+     skip Firebase Hosting for now, and copy the `firebaseConfig` object
+     it shows you into FIREBASE_CONFIG below (replace the whole object).
+  3. Build → Firestore Database → Create database → start in production mode
+     → pick any region close to you.
+  4. Build → Authentication → Get started → enable the "Anonymous" sign-in
+     provider (this lets every screen connect with zero login UI).
+  5. In Firestore → Rules, paste:
+       rules_version = '2';
+       service cloud.firestore {
+         match /databases/{database}/documents {
+           match /tickets/{ticketId} {
+             allow read, write: if request.auth != null;
+           }
+         }
+       }
+     then Publish. This keeps the data closed to anyone who hasn't loaded
+     this app (anonymous sign-in still required) rather than wide open to
+     the internet — it is NOT the same as real per-staff login.
+  Until FIREBASE_CONFIG below is filled in, the app quietly runs in
+  single-tab "offline preview" mode (shows a banner) instead of failing.
+-->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB5lslWqTxo9xMQp2Dv4MDq6QBqaQuadck",
+  authDomain: "starline-queue.firebaseapp.com",
+  projectId: "starline-queue",
+  storageBucket: "starline-queue.firebasestorage.app",
+  messagingSenderId: "891881895581",
+  appId: "1:891881895581:web:7179eaf45adff0d5620674"
+};
+</script>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const DEPTS = [
+  { code:'OPS', name:'Operations Department' },
+  { code:'BIL', name:'Billing Department' },
+  { code:'MGR', name:"Manager's Office" },
+  { code:'HRD', name:'HR Department' },
+  { code:'ADM', name:'Admin Department' },
+];
+const MONITOR_ORDER = ['BIL','HRD','OPS','MGR','ADM']; // Billing, HR, Ops, Mgr as requested; Admin added last
+const MAX_NUM = 30; // numbers per department, 001–030 (a concurrent cap, not a daily one)
+const deptName = code => (DEPTS.find(d=>d.code===code)||{}).name || code;
+// How each department code is actually SPOKEN by the voice announcement —
+// "HRD" reads oddly aloud, so it's announced as "HR" instead, and "ADM" is spelled
+// out letter by letter (a voice would otherwise try to read it as a word); the rest
+// match their on-screen code.
+const SPOKEN_DEPT = { OPS:'OPS', BIL:'BIL', MGR:'MGR', HRD:'HR', ADM:'A D M' };
+const VISIT_REASONS = ['Endorsement', 'Resignation', 'Applicant', 'Payroll Concern', 'Submit DTR'];
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function safeSet(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
+function safeRemove(key){ try{ localStorage.removeItem(key); }catch(e){} }
+function pad3(n){ return String(n).padStart(3,'0'); }
+function ticketCode(t){ return t.dept + '-' + pad3(t.number); }
+function todayKey(d){
+  const t = d ? new Date(d) : new Date();
+  if (t.getHours() < 6) t.setDate(t.getDate() - 1);
+  const y=t.getFullYear(), m=String(t.getMonth()+1).padStart(2,'0'), da=String(t.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+da;
+}
+function formatDuration(ms){
+  if (ms < 0) ms = 0;
+  const s = Math.floor(ms/1000);
+  const hh = Math.floor(s/3600), mm = Math.floor((s%3600)/60), ss = s%60;
+  const two = n => String(n).padStart(2,'0');
+  return hh>0 ? (hh+':'+two(mm)+':'+two(ss)) : (two(mm)+':'+two(ss));
+}
+function formatClock(d){
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+function formatDay(dateKey){
+  const [y,m,d] = dateKey.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+}
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Ticket lifecycle: waiting (a desk hasn't answered; this is what rings) →
+// accepted (a desk took it; lined up, shown as WAITING on the monitor) →
+// serving (called to the desk; the monitor announces it) → done.
+// 'accepted' is set by the desktop desk app; transfer_pending remembers the
+// status it left from in transferPrevStatus.
+const ACTIVE_STATUSES = ['waiting','accepted','serving','transfer_pending'];
+function takenNumbers(tickets, dept){
+  const set = new Set();
+  tickets.forEach(t => { if (t.dept===dept && ACTIVE_STATUSES.includes(t.status)) set.add(t.number); });
+  return set;
+}
+function nextAvailable(tickets, dept){
+  const taken = takenNumbers(tickets, dept);
+  for (let n=1; n<=MAX_NUM; n++) if (!taken.has(n)) return n;
+  return null;
+}
+// On the monitor: "Serving" = called, "Waiting" = accepted-but-not-yet-called.
+// A transfer in flight counts as whichever of those it left from.
+function isCalledTicket(t){ return t.status==='serving' || (t.status==='transfer_pending' && t.transferPrevStatus!=='accepted'); }
+function isAcceptedTicket(t){ return t.status==='accepted' || (t.status==='transfer_pending' && t.transferPrevStatus==='accepted'); }
+
+/* ============================================================
+   DATA LAYER — talks to the shared db when available, otherwise
+   keeps everything in memory for this tab only (offline preview).
+   ============================================================ */
+const DataLayer = (() => {
+  let db = null;
+  let mode = 'local';
+  let localTickets = new Map();
+  let localListeners = [];
+  let localDeptStatus = new Map();
+  let localDeptStatusListeners = [];
+  let localVisitReasonsExtra = [];
+  let localVisitReasonsListeners = [];
+  let localSeq = 0;
+
+  function notifyLocal(){
+    const key = todayKey();
+    const arr = Array.from(localTickets.values()).filter(t => t.dateKey === key);
+    localListeners.forEach(fn => fn(arr));
+  }
+  function notifyDeptStatusLocal(){
+    const arr = DEPTS.map(d => Object.assign({id:d.code}, localDeptStatus.get(d.code) || {available:true, updatedAt:0}));
+    localDeptStatusListeners.forEach(fn => fn(arr));
+  }
+
+  async function init(){
+    try{
+      const configured = FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('REPLACE_WITH_')!==0;
+      if (configured && window.firebase){
+        firebase.initializeApp(FIREBASE_CONFIG);
+        await firebase.auth().signInAnonymously();
+        db = firebase.firestore();
+      } else {
+        db = null;
+      }
+    } catch(e){
+      console.error('Firebase init failed — falling back to offline preview mode:', e);
+      db = null;
+    }
+    mode = db ? 'db' : 'local';
+    return mode;
+  }
+
+  function subscribeToday(cb){
+    if (mode === 'db'){
+      const q = db.collection('tickets').where('dateKey','==', todayKey()).limit(500);
+      return q.onSnapshot(
+        snap => cb(snap.docs.map(d => Object.assign({id:d.id}, d.data()))),
+        err => console.error('db onSnapshot error', err)
+      );
+    }
+    localListeners.push(cb);
+    notifyLocal();
+    return () => { localListeners = localListeners.filter(f => f!==cb); };
+  }
+
+  async function addTicket(data){
+    if (mode === 'db'){
+      const ref = await db.collection('tickets').add(data);
+      return ref.id;
+    }
+    const id = 'local-' + (++localSeq);
+    localTickets.set(id, Object.assign({id:id}, data));
+    notifyLocal();
+    return id;
+  }
+
+  async function updateTicket(id, patch){
+    if (mode === 'db'){
+      await db.doc('tickets/' + id).update(patch);
+      return;
+    }
+    const cur = localTickets.get(id);
+    if (cur){ localTickets.set(id, Object.assign({}, cur, patch)); notifyLocal(); }
+  }
+
+  // Department availability — separate from ticket queue data. Defaults to
+  // available when a department has never touched the toggle.
+  function subscribeDeptStatus(cb){
+    if (mode === 'db'){
+      return db.collection('deptStatus').onSnapshot(
+        snap => cb(snap.docs.map(d => Object.assign({id:d.id}, d.data()))),
+        err => console.error('deptStatus onSnapshot error', err)
+      );
+    }
+    localDeptStatusListeners.push(cb);
+    notifyDeptStatusLocal();
+    return () => { localDeptStatusListeners = localDeptStatusListeners.filter(f => f!==cb); };
+  }
+
+  async function setDeptAvailable(dept, available){
+    if (mode === 'db'){
+      await db.collection('deptStatus').doc(dept).set({ available, updatedAt: Date.now() }, { merge: true });
+      return;
+    }
+    localDeptStatus.set(dept, { available, updatedAt: Date.now() });
+    notifyDeptStatusLocal();
+  }
+
+  // One-time (not live) fetch of a single day's tickets, for History.
+  async function fetchByDate(dateKey){
+    if (mode === 'db'){
+      const snap = await db.collection('tickets').where('dateKey','==', dateKey).limit(500).get();
+      return snap.docs.map(d => Object.assign({id:d.id}, d.data()));
+    }
+    return Array.from(localTickets.values()).filter(t => t.dateKey === dateKey);
+  }
+
+  // Reasons for visit added on the fly via "+ Add Reason" — shared across
+  // every Reception station, on top of the built-in VISIT_REASONS list.
+  function subscribeVisitReasons(cb){
+    if (mode === 'db'){
+      return db.doc('config/visitReasons').onSnapshot(
+        snap => cb(snap.exists && Array.isArray(snap.data().extra) ? snap.data().extra : []),
+        err => console.error('visitReasons onSnapshot error', err)
+      );
+    }
+    localVisitReasonsListeners.push(cb);
+    cb(localVisitReasonsExtra.slice());
+    return () => { localVisitReasonsListeners = localVisitReasonsListeners.filter(f => f!==cb); };
+  }
+  async function addVisitReason(reason){
+    if (mode === 'db'){
+      const ref = db.doc('config/visitReasons');
+      const snap = await ref.get();
+      const current = (snap.exists && Array.isArray(snap.data().extra)) ? snap.data().extra.slice() : [];
+      if (!current.includes(reason)) current.push(reason);
+      await ref.set({ extra: current }, { merge: true });
+      return;
+    }
+    if (!localVisitReasonsExtra.includes(reason)) localVisitReasonsExtra.push(reason);
+    localVisitReasonsListeners.forEach(fn => fn(localVisitReasonsExtra.slice()));
+  }
+
+  return { init, subscribeToday, addTicket, updateTicket, subscribeDeptStatus, setDeptAvailable, fetchByDate, subscribeVisitReasons, addVisitReason, isLocal:() => mode==='local' };
+})();
+
+/* ============================================================
+   APP STATE
+   ============================================================ */
+let ALL_TICKETS = [];
+let DEPT_STATUS = {}; // dept code -> {available, updatedAt}
+let EXTRA_REASONS = []; // visit reasons added via "+ Add Reason", on top of VISIT_REASONS
+function allVisitReasons(){
+  return VISIT_REASONS.concat(EXTRA_REASONS.filter(r => !VISIT_REASONS.includes(r)));
+}
+// ?kiosk=monitor → lobby display: always the Monitor, nothing to click, and the choice is
+// not saved (so it can't change what other screens on this browser open to).
+const KIOSK_MONITOR = new URLSearchParams(location.search).get('kiosk') === 'monitor';
+if (KIOSK_MONITOR) document.documentElement.classList.add('kiosk');
+let currentView = KIOSK_MONITOR ? 'monitor' : (safeGet('slq_view') || 'reception');
+let currentDept = safeGet('slq_dept') || null;
+let alarmInterval = null;
+
+// "Visitor called" flash + spoken announcement on the Monitor board — fires
+// once when a department accepts a ticket (fresh or transfer), so someone
+// watching the board notices their number just got called. dept -> timestamp
+// the flash should stop by.
+let recentlyCalledUntil = {};
+let lastTicketStatus = {};
+let lastCalledAgainAt = {};
+let statusTrackingReady = false;
+let calledRerenderTimer = null;
+function scheduleCalledRerender(){
+  if (calledRerenderTimer) return;
+  calledRerenderTimer = setTimeout(() => {
+    calledRerenderTimer = null;
+    if (currentView === 'monitor') updateMonitorDynamic();
+  }, 5100);
+}
+function detectCalledTransitions(tickets){
+  if (!statusTrackingReady){
+    tickets.forEach(t => { lastTicketStatus[t.id] = t.status; lastCalledAgainAt[t.id] = t.calledAgainAt || 0; });
+    statusTrackingReady = true;
+    return;
+  }
+  const seenIds = new Set();
+  let anyCalled = false, anyQueued = false;
+  tickets.forEach(t => {
+    const prevStatus = lastTicketStatus[t.id];
+    const prevCalledAgainAt = lastCalledAgainAt[t.id] || 0;
+    const justServed = t.status === 'serving' && prevStatus !== 'serving';
+    const calledAgain = t.status === 'serving' && (t.calledAgainAt||0) > prevCalledAgainAt;
+    // New ticket added to a queue (or a ticket put back into one).
+    if (t.status === 'waiting' && prevStatus !== 'waiting') anyQueued = true;
+    if (justServed || calledAgain){
+      anyCalled = true;
+      recentlyCalledUntil[t.dept] = Date.now() + 5000;
+      if (currentView === 'monitor'){ updateMonitorDynamic(); announceCalled(t.dept, t.number); }
+      scheduleCalledRerender();
+    }
+    lastTicketStatus[t.id] = t.status;
+    lastCalledAgainAt[t.id] = t.calledAgainAt || 0;
+    seenIds.add(t.id);
+  });
+  Object.keys(lastTicketStatus).forEach(id => { if (!seenIds.has(id)){ delete lastTicketStatus[id]; delete lastCalledAgainAt[id]; } });
+  // One soft chime per update on the Monitor board when someone joins a queue.
+  // Skipped when a number is being called in the same update (that has its own announcement).
+  if (anyQueued && !anyCalled && currentView === 'monitor') queuedChime();
+}
+
+// Unknown/never-toggled departments default to available.
+function isDeptAvailable(dept){
+  return !DEPT_STATUS[dept] || DEPT_STATUS[dept].available !== false;
+}
+
+// Reception ephemeral (not persisted) form state
+const recState = { dept:null, number:null, reassignId:null, lastCreated:null };
+
+/* ============================================================
+   AUDIO ALERT (synthesized — no external assets needed)
+   ============================================================ */
+let actx = null, limiter = null;
+function ensureAudio(){
+  if (!actx){
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    // A brick-wall-ish limiter on the master bus lets the alarm run "hot"
+    // (high gain, for real volume) without the harsh digital clipping that
+    // a loud square wave would otherwise produce straight to the speakers.
+    limiter = actx.createDynamicsCompressor();
+    limiter.threshold.value = -10; limiter.knee.value = 4;
+    limiter.ratio.value = 16; limiter.attack.value = 0.002; limiter.release.value = 0.12;
+    limiter.connect(actx.destination);
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur, startAt, vol, wave){
+  const t0 = actx.currentTime + startAt;
+  const osc = actx.createOscillator(), gain = actx.createGain();
+  osc.type = wave || 'square'; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0 + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur/1000);
+  osc.connect(gain).connect(limiter);
+  osc.start(t0); osc.stop(t0 + dur/1000 + 0.03);
+}
+// Sharp, insistent two-tone alarm (like a smoke detector) rather than a soft
+// doorbell chime — deliberately hard to ignore across a busy office.
+function chime(){
+  try{
+    ensureAudio();
+    const hi = 1567, lo = 1046, dur = 110, gap = 135;
+    for (let i=0; i<6; i++) beep(i%2===0 ? hi : lo, dur, i*gap/1000, .85);
+  } catch(e){}
+}
+// Monitor board: gentle rising "ding-ding" when a new number joins a queue —
+// deliberately softer than the call announcement so the lobby can tell them apart.
+// If a call announcement is still speaking, wait for it to finish (up to ~15s).
+function queuedChime(tries){
+  tries = tries || 0;
+  if (tries < 10 && 'speechSynthesis' in window && speechSynthesis.speaking){
+    setTimeout(() => queuedChime(tries + 1), 1500);
+    return;
+  }
+  try{
+    ensureAudio();
+    beep(880,  650, 0,    .55, 'sine');
+    beep(1319, 900, 0.22, .55, 'sine');
+  } catch(e){}
+}
+// The real recorded PA chime the user picked, decoded once and reused —
+// played back boosted (and through the same limiter as the alarm) so it
+// stays loud without clipping. Falls back to a synthesized "duuung-dong-
+// duuung" if the file hasn't loaded yet (or fails to) so there's always
+// some tone rather than silence.
+let announcementBuffer = null;
+let announcementBufferReversed = null; // outro: the same clip played backwards
+let announcementEffectiveDuration = null; // real sound length, trailing silence trimmed
+let announcementLoadPromise = null;
+const ANNOUNCEMENT_BOOST = 3.0;
+function reverseAudioBuffer(buffer){
+  const reversed = actx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++){
+    const src = buffer.getChannelData(ch);
+    const dst = reversed.getChannelData(ch);
+    for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i];
+  }
+  return reversed;
+}
+// Many recorded clips (this one included) have a stretch of near-silence at
+// the tail — waiting out the FULL file length before speaking made the gap
+// after the intro feel too long. Find where the actual sound stops instead.
+function computeEffectiveDuration(buffer){
+  const data = buffer.getChannelData(0);
+  const threshold = 0.02;
+  for (let i = data.length - 1; i >= 0; i--){
+    if (Math.abs(data[i]) > threshold) return (i+1) / buffer.sampleRate;
+  }
+  return buffer.duration;
+}
+function loadAnnouncementSound(){
+  if (announcementLoadPromise) return announcementLoadPromise;
+  announcementLoadPromise = (async () => {
+    try{
+      ensureAudio();
+      const resp = await fetch('./announcement.mp3');
+      const arrayBuf = await resp.arrayBuffer();
+      announcementBuffer = await actx.decodeAudioData(arrayBuf);
+      announcementBufferReversed = reverseAudioBuffer(announcementBuffer);
+      announcementEffectiveDuration = computeEffectiveDuration(announcementBuffer);
+    } catch(e){ console.error('Could not load announcement.mp3, falling back to synthesized chime:', e); }
+  })();
+  return announcementLoadPromise;
+}
+function attentionToneFallback(){
+  beep(784, 480, 0,    .8, 'sine'); // duuung
+  beep(659, 360, 0.42, .8, 'sine'); // dong
+  beep(784, 520, 0.78, .8, 'sine'); // duuung
+}
+// variant 'intro' (default) plays the clip forward, before the voice;
+// 'outro' plays it reversed, after the voice — same sound, bookending.
+function attentionTone(variant){
+  try{
+    ensureAudio();
+    const buffer = variant === 'outro' ? (announcementBufferReversed || announcementBuffer) : announcementBuffer;
+    if (buffer){
+      const src = actx.createBufferSource();
+      src.buffer = buffer;
+      const gain = actx.createGain();
+      gain.gain.value = ANNOUNCEMENT_BOOST;
+      src.connect(gain).connect(limiter);
+      src.start();
+    } else {
+      attentionToneFallback();
+    }
+  } catch(e){}
+}
+// How long to wait before speaking — the sound's real content length (not
+// the full file, which may have trailing silence), plus a short pause.
+function attentionToneDurationMs(){
+  const secs = announcementEffectiveDuration != null ? announcementEffectiveDuration : (announcementBuffer ? announcementBuffer.duration : null);
+  return secs != null ? Math.ceil(secs*1000) + 200 : 1400;
+}
+// Speaks "<DEPT>-<number> is now serving" on the Monitor board, with the
+// attention tone before and after — tone, then voice, then tone again once
+// speech finishes (or immediately if speech synthesis isn't available).
+function announceCalled(dept, number){
+  attentionTone('intro');
+  const text = (SPOKEN_DEPT[dept] || dept) + '-' + pad3(number) + ' is now serving';
+  const CHIME_MS = attentionToneDurationMs(); // let the tone fully finish before speaking
+  if (!('speechSynthesis' in window)){ setTimeout(() => attentionTone('outro'), CHIME_MS); return; }
+  try{
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.95;
+    utter.volume = 1;
+    utter.onend = () => attentionTone('outro');
+    utter.onerror = () => attentionTone('outro');
+    setTimeout(() => { try{ speechSynthesis.speak(utter); }catch(e){ attentionTone('outro'); } }, CHIME_MS);
+  } catch(e){ setTimeout(() => attentionTone('outro'), CHIME_MS); }
+}
+// Alerts are always on — no toggle. Browsers require a user gesture before
+// audio can play, so silently unlock the AudioContext (and prime speech
+// synthesis, which has its own similar restriction on some browsers) on the
+// very first click/tap/keypress anywhere on the page — picking a desk on
+// the department picker already does this in practice — rather than making
+// staff opt in.
+function unlockAudioAndSpeech(){
+  try{ ensureAudio(); }catch(e){}
+  try{ if ('speechSynthesis' in window){ speechSynthesis.speak(new SpeechSynthesisUtterance('')); } }catch(e){}
+}
+document.addEventListener('pointerdown', unlockAudioAndSpeech, { once:true });
+document.addEventListener('keydown', unlockAudioAndSpeech, { once:true });
+
+function alertsNeedingAttention(dept){
+  return ALL_TICKETS.filter(t =>
+    (t.dept===dept && t.status==='waiting') ||
+    (t.status==='transfer_pending' && t.transferToDept===dept)
+  );
+}
+function updateAlarmLoop(){
+  const shouldRing = currentView==='department' && currentDept && alertsNeedingAttention(currentDept).length>0;
+  if (shouldRing && !alarmInterval){
+    chime();
+    alarmInterval = setInterval(chime, 2000);
+  } else if (!shouldRing && alarmInterval){
+    clearInterval(alarmInterval); alarmInterval = null;
+  }
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function openModal(html, mountFn){
+  const overlay = document.getElementById('modalOverlay');
+  const box = document.getElementById('modalBox');
+  box.innerHTML = html;
+  overlay.hidden = false;
+  if (mountFn) mountFn(box);
+  overlay.onclick = e => { if (e.target===overlay) closeModal(); };
+}
+function closeModal(){ document.getElementById('modalOverlay').hidden = true; }
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+function renderTopbar(){
+  document.querySelectorAll('#viewTabs button').forEach(b => b.classList.toggle('active', b.dataset.view===currentView));
+  const ctx = document.getElementById('deptContext');
+  if (currentView==='department' && currentDept){
+    ctx.innerHTML =
+      '<span class="dept-badge" data-dept="'+currentDept+'">'+deptName(currentDept)+'</span>' +
+      '<button id="switchDeskBtn">Switch desk</button>';
+    document.getElementById('switchDeskBtn').onclick = () => { currentDept=null; safeRemove('slq_dept'); mountView(); };
+  } else {
+    ctx.innerHTML='';
+  }
+}
+// Every view offers a real-fullscreen toggle (address bar, tabs, bookmarks
+// bar, and usually the OS taskbar all disappear) — useful for a tablet or
+// kiosk screen sitting at the lobby or a desk. Note: iOS Safari does not
+// support the Fullscreen API for ordinary pages (an Apple/WebKit platform
+// limitation, not something a webpage can work around) — an iPad running
+// Chrome or Edge (which use WebKit too under Apple's rules, so also
+// unsupported) won't be able to go fullscreen this way; Android tablets work.
+function isFullscreenActive(){
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+}
+function fullscreenSupported(){
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen);
+}
+function toggleFullscreen(){
+  if (isFullscreenActive()){
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (!exit) return;
+    try{ const p = exit.call(document); if (p && typeof p.catch==='function') p.catch(()=>{}); }catch(e){}
+  } else {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (!req) return;
+    try{ const p = req.call(el); if (p && typeof p.catch==='function') p.catch(()=>{}); }catch(e){}
+  }
+}
+function renderFullscreenBtn(){
+  const btn = document.getElementById('fullscreenBtn');
+  if (!btn) return;
+  const on = isFullscreenActive();
+  btn.innerHTML = on
+    ? '<svg viewBox="0 0 24 24" fill="none"><path d="M9 4H5a1 1 0 00-1 1v4M15 4h4a1 1 0 011 1v4M9 20H5a1 1 0 01-1-1v-4M15 20h4a1 1 0 001-1v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none"><path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  btn.title = on ? 'Exit full screen' : 'Full screen';
+  btn.setAttribute('aria-label', btn.title);
+}
+document.addEventListener('fullscreenchange', renderFullscreenBtn);
+document.addEventListener('webkitfullscreenchange', renderFullscreenBtn);
+(function initFullscreenBtn(){
+  const btn = document.getElementById('fullscreenBtn');
+  if (!btn) return;
+  if (!fullscreenSupported()){ btn.hidden = true; return; } // e.g. iOS Safari
+  btn.onclick = toggleFullscreen;
+  renderFullscreenBtn();
+})();
+document.querySelectorAll('#viewTabs button').forEach(b => {
+  b.onclick = () => { currentView = b.dataset.view; safeSet('slq_view', currentView); mountView(); };
+});
+function updateClock(){
+  const now = new Date();
+  document.getElementById('clock').innerHTML = formatClock(now) + '<span class="day">' + formatDay(todayKey()) + '</span>';
+}
+
+/* ============================================================
+   VIEW MOUNTING
+   ============================================================ */
+function mountView(){
+  renderTopbar();
+  const root = document.getElementById('viewRoot');
+  if (currentView==='reception') root.innerHTML = receptionSkeleton();
+  else if (currentView==='department') root.innerHTML = currentDept ? departmentSkeleton() : departmentPickerSkeleton();
+  else if (currentView==='history') root.innerHTML = historySkeleton();
+  else root.innerHTML = monitorSkeleton();
+  wireStaticHandlers();
+  if (currentView==='history') wireHistoryHandlers();
+  onDataChanged();
+  updateAlarmLoop();
+}
+function onDataChanged(){
+  if (currentView==='reception') updateReceptionDynamic();
+  else if (currentView==='department' && currentDept) updateDepartmentDynamic();
+  else if (currentView==='monitor') updateMonitorDynamic();
+  updateAlarmLoop();
+}
+
+/* ============================================================
+   RECEPTION VIEW
+   ============================================================ */
+function receptionSkeleton(){
+  return (
+  '<div class="reception-grid">' +
+    '<div class="panel">' +
+      '<div class="panel-title">1 · Select department / office</div>' +
+      '<div class="dept-select-grid" id="deptSelectGrid"></div>' +
+
+      '<div class="panel-title">2 · Select queue number</div>' +
+      '<div class="tile-legend">' +
+        '<span><i style="background:var(--surface-2); border:1px solid var(--line);"></i>Available</span>' +
+        '<span><i style="background:var(--status-waiting-bg);"></i>Waiting</span>' +
+        '<span><i style="background:var(--status-serving-bg);"></i>In progress</span>' +
+        '<span><i style="background:var(--accent);"></i>Selected</span>' +
+      '</div>' +
+      '<div class="tile-grid" id="tileGrid"></div>' +
+      '<div id="tileFullNote" style="font-size:12.5px; color:var(--status-declined); display:none;">All '+MAX_NUM+' numbers for this department are currently in use. Wait for one to be freed.</div>' +
+
+      '<div class="panel-title" style="margin-top:18px;">3 · Visit details</div>' +
+      '<div id="reassignNotice" style="display:none; font-size:13px; background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:12px;"></div>' +
+      '<label class="field-label" for="officerInput">Concerned officer <span style="font-weight:400; color:var(--ink-faint);">(optional)</span></label>' +
+      '<input type="text" id="officerInput" placeholder="e.g. Ms. Reyes" style="margin-bottom:12px;">' +
+      '<label class="field-label" for="placeOfDutyInput">Place of duty <span style="font-weight:400; color:var(--ink-faint);">(optional)</span></label>' +
+      '<input type="text" id="placeOfDutyInput" placeholder="e.g. Site 3 — Warehouse Gate" style="margin-bottom:12px;">' +
+      '<label class="field-label" for="reasonInput">Reason of visit</label>' +
+      '<select id="reasonInput" required></select>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="addReasonBtn" style="margin-top:8px;">+ Add Reason</button>' +
+
+      '<button class="btn btn-primary btn-block" id="createBtn" style="margin-top:16px;" disabled>Create Queue</button>' +
+      '<button class="btn btn-ghost btn-block" id="cancelReassignBtn" style="display:none; margin-top:8px;">Cancel reassignment</button>' +
+    '</div>' +
+
+    '<div style="display:flex; flex-direction:column; gap:16px;">' +
+      '<div class="panel" id="confirmPanel" style="display:none;"></div>' +
+      '<div class="panel" id="declinedPanel"></div>' +
+      '<div class="panel">' +
+        '<div class="panel-title">Today&rsquo;s active queue</div>' +
+        '<div id="activeQueueList"></div>' +
+      '</div>' +
+    '</div>' +
+  '</div>');
+}
+
+function renderDeptSelectGrid(){
+  const grid = document.getElementById('deptSelectGrid');
+  grid.innerHTML = DEPTS.map(d => {
+    const on = isDeptAvailable(d.code);
+    return '<button class="dept-select-card" data-dept="'+d.code+'" data-active="'+(recState.dept===d.code?'1':'0')+'" type="button">' +
+      '<span class="avail-pill '+(on?'on':'off')+'"><span class="dot"></span>'+(on?'Available':'Away')+'</span>' +
+      '<span class="code">'+d.code+'</span><span class="name">'+d.name+'</span>' +
+    '</button>';
+  }).join('');
+  grid.querySelectorAll('.dept-select-card').forEach(btn => {
+    btn.onclick = () => { recState.dept = btn.dataset.dept; recState.number = null; renderDeptSelectGrid(); renderTileGrid(); renderCreateBtnState(); };
+  });
+}
+
+function wireReceptionHandlers(){
+  renderDeptSelectGrid();
+  renderReasonOptions();
+
+  document.getElementById('officerInput').addEventListener('input', renderCreateBtnState);
+  document.getElementById('reasonInput').addEventListener('change', renderCreateBtnState);
+  document.getElementById('addReasonBtn').onclick = openAddReasonModal;
+  document.getElementById('createBtn').onclick = submitQueue;
+  document.getElementById('cancelReassignBtn').onclick = () => { exitReassignMode(); };
+}
+
+// Rebuilds the <option>s from VISIT_REASONS + any custom ones added via
+// "+ Add Reason", preserving whatever is currently selected if it still exists.
+function renderReasonOptions(){
+  const sel = document.getElementById('reasonInput');
+  if (!sel) return;
+  const current = sel.value;
+  const reasons = allVisitReasons();
+  sel.innerHTML = '<option value="" disabled'+(current?'':' selected')+'>Select a reason</option>' +
+    reasons.map(r => '<option'+(r===current?' selected':'')+'>'+esc(r)+'</option>').join('');
+}
+function openAddReasonModal(){
+  openModal(
+    '<h3>Add a new reason</h3>' +
+    '<p class="sub">This gets added to the dropdown for every Reception station, right away.</p>' +
+    '<label class="field-label" for="newReasonInput">Reason</label>' +
+    '<input type="text" id="newReasonInput" placeholder="e.g. Clearance Signing" maxlength="60">' +
+    '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" id="addReasonCancelBtn">Cancel</button>' +
+      '<button class="btn btn-primary" id="addReasonConfirmBtn" disabled>Add Reason</button>' +
+    '</div>',
+    box => {
+      const input = box.querySelector('#newReasonInput');
+      const confirmBtn = box.querySelector('#addReasonConfirmBtn');
+      input.addEventListener('input', () => confirmBtn.disabled = input.value.trim().length===0);
+      box.querySelector('#addReasonCancelBtn').onclick = closeModal;
+      confirmBtn.onclick = async () => {
+        const val = input.value.trim();
+        if (!val) return;
+        confirmBtn.disabled = true;
+        await DataLayer.addVisitReason(val);
+        if (!EXTRA_REASONS.includes(val)) EXTRA_REASONS.push(val);
+        closeModal();
+        renderReasonOptions();
+        const sel = document.getElementById('reasonInput');
+        if (sel) sel.value = val;
+        renderCreateBtnState();
+      };
+      input.focus();
+    }
+  );
+}
+
+function renderTileGrid(){
+  const gridEl = document.getElementById('tileGrid');
+  const noteEl = document.getElementById('tileFullNote');
+  if (!recState.dept){ gridEl.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">Choose a department above first.</div>'; noteEl.style.display='none'; return; }
+  const taken = takenNumbers(ALL_TICKETS, recState.dept);
+  let anyAvailable = false;
+  let html = '';
+  for (let n=1; n<=MAX_NUM; n++){
+    let state;
+    if (recState.number===n) state='selected';
+    else if (taken.has(n)){
+      const t = ALL_TICKETS.find(x=>x.dept===recState.dept && x.number===n && ACTIVE_STATUSES.includes(x.status));
+      state = (t && t.status==='waiting') ? 'waiting' : 'serving';
+    } else { state='available'; anyAvailable = true; }
+    html += '<button type="button" class="tile" data-state="'+state+'" data-n="'+n+'" '+(state==='waiting'||state==='serving' ? 'disabled':'')+'>'+pad3(n)+'</button>';
+  }
+  gridEl.innerHTML = html;
+  noteEl.style.display = anyAvailable ? 'none' : 'block';
+  gridEl.querySelectorAll('.tile[data-state="available"], .tile[data-state="selected"]').forEach(tile => {
+    tile.onclick = () => { recState.number = Number(tile.dataset.n); renderTileGrid(); renderCreateBtnState(); };
+  });
+}
+
+function renderCreateBtnState(){
+  const officer = document.getElementById('officerInput');
+  const reason = document.getElementById('reasonInput');
+  const btn = document.getElementById('createBtn');
+  if (!officer || !reason || !btn) return;
+  const ok = recState.dept && recState.number && reason.value.trim().length>0;
+  btn.disabled = !ok;
+  btn.textContent = recState.reassignId ? 'Reassign Queue' : 'Create Queue';
+}
+
+async function submitQueue(){
+  const officer = document.getElementById('officerInput').value.trim();
+  const placeOfDuty = document.getElementById('placeOfDutyInput').value.trim();
+  const reason = document.getElementById('reasonInput').value.trim();
+  if (!recState.dept || !recState.number || !reason) return;
+  const btn = document.getElementById('createBtn');
+  btn.disabled = true;
+
+  if (recState.reassignId){
+    const existing = ALL_TICKETS.find(t=>t.id===recState.reassignId);
+    const history = (existing && existing.transferHistory) ? existing.transferHistory.slice() : [];
+    history.push({ from: existing ? existing.dept : null, to: recState.dept, at: Date.now(), action:'reassigned_after_decline', reason: existing ? existing.declineReason : null });
+    const deptsQueuedFor = (existing && existing.deptsQueuedFor) ? existing.deptsQueuedFor.slice() : [];
+    if (!deptsQueuedFor.includes(recState.dept)) deptsQueuedFor.push(recState.dept);
+    await DataLayer.updateTicket(recState.reassignId, {
+      dept: recState.dept, number: recState.number, status:'waiting',
+      officer, placeOfDuty, reason, acceptedAt:null, declineReason:null, declinedByDept:null,
+      transferHistory: history, deptsQueuedFor, lastUpdatedAt: Date.now()
+    });
+    recState.lastCreated = { id: recState.reassignId, dept: recState.dept, number: recState.number, officer, placeOfDuty, reason };
+  } else {
+    const now = Date.now();
+    const data = {
+      dept: recState.dept, number: recState.number, originalDept: recState.dept, originalNumber: recState.number,
+      officer, placeOfDuty, reason, status:'waiting', dateKey: todayKey(),
+      createdAt: now, acceptedAt:null, doneAt:null,
+      declineReason:null, declinedByDept:null,
+      transferToDept:null, transferFromDept:null, transferRequestedAt:null,
+      transferHistory: [], deptsQueuedFor: [recState.dept],
+      lastUpdatedAt: now
+    };
+    const id = await DataLayer.addTicket(data);
+    recState.lastCreated = Object.assign({id}, data);
+  }
+
+  exitReassignMode(false);
+  recState.dept = null; recState.number = null;
+  renderDeptSelectGrid();
+  document.getElementById('officerInput').value='';
+  document.getElementById('placeOfDutyInput').value='';
+  document.getElementById('reasonInput').value='';
+  renderTileGrid();
+  renderCreateBtnState();
+  showConfirmPanel(recState.lastCreated);
+}
+
+function showConfirmPanel(t){
+  const panel = document.getElementById('confirmPanel');
+  panel.style.display='block';
+  panel.innerHTML =
+    '<div class="confirm-ticket">' +
+      '<div class="code">'+t.dept+'-'+pad3(t.number)+'</div>' +
+      '<div class="label">'+esc(deptName(t.dept))+'</div>' +
+    '</div>' +
+    '<button class="btn btn-primary btn-block" id="printBtn">🖨️ Print ticket for visitor</button>';
+  document.getElementById('printBtn').onclick = () => printTicket(t);
+}
+
+function printTicket(t){
+  document.getElementById('ptCode').textContent = t.dept+'-'+pad3(t.number);
+  document.getElementById('ptDept').textContent = deptName(t.dept);
+  const issued = new Date(t.createdAt || Date.now());
+  const rows = [
+    { l:'Date', v: issued.toLocaleDateString([], {year:'numeric', month:'short', day:'numeric'}) },
+    { l:'Time', v: issued.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) },
+  ];
+  if (t.officer) rows.push({ l:'Concerned Officer', v: t.officer });
+  if (t.placeOfDuty) rows.push({ l:'Place of Duty', v: t.placeOfDuty });
+  rows.push({ l:'Reason of Visit', v: t.reason });
+  document.getElementById('ptRows').innerHTML = rows.map(r =>
+    '<div class="pt-row"><span class="pt-label">'+esc(r.l)+'</span><span class="pt-value">'+esc(r.v)+'</span></div>'
+  ).join('');
+  document.body.classList.add('printing');
+  window.print();
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
+
+function enterReassignMode(ticket){
+  recState.reassignId = ticket.id;
+  recState.dept = null;
+  recState.number = null;
+  document.getElementById('officerInput').value = ticket.officer || '';
+  document.getElementById('placeOfDutyInput').value = ticket.placeOfDuty || '';
+  document.getElementById('reasonInput').value = ticket.reason || '';
+  document.getElementById('reassignNotice').style.display='block';
+  document.getElementById('reassignNotice').innerHTML =
+    '<strong>Reassigning '+esc(ticket.dept+'-'+pad3(ticket.number))+'</strong><br>' +
+    '<span style="color:var(--status-declined);">Declined by '+esc(deptName(ticket.declinedByDept))+':</span> ' + esc(ticket.declineReason);
+  document.getElementById('cancelReassignBtn').style.display='block';
+  renderDeptSelectGrid();
+  renderTileGrid();
+  renderCreateBtnState();
+  document.getElementById('deptSelectGrid').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function exitReassignMode(clearNotice){
+  recState.reassignId = null;
+  const notice = document.getElementById('reassignNotice');
+  if (notice && clearNotice!==false){ notice.style.display='none'; notice.innerHTML=''; }
+  const cbtn = document.getElementById('cancelReassignBtn');
+  if (cbtn) cbtn.style.display='none';
+  renderCreateBtnState();
+}
+
+function updateReceptionDynamic(){
+  renderDeptSelectGrid();
+  renderTileGrid();
+  renderCreateBtnState();
+
+  const declined = ALL_TICKETS.filter(t=>t.status==='declined').sort((a,b)=>b.declinedAt-a.declinedAt);
+  const declinedPanel = document.getElementById('declinedPanel');
+  if (declinedPanel){
+    declinedPanel.innerHTML = '<div class="panel-title">Declined — needs reassignment</div>' +
+      (declined.length===0
+        ? '<div class="empty-state">No declined visitors right now.</div>'
+        : declined.map(t =>
+            '<div class="decline-alert">' +
+              '<div class="head"><span class="code">'+t.dept+'-'+pad3(t.number)+'</span>' +
+              '<button class="btn btn-sm btn-primary" data-reassign="'+t.id+'">Reassign</button></div>' +
+              '<div class="why">'+esc(deptName(t.declinedByDept))+' declined: '+esc(t.declineReason)+'</div>' +
+            '</div>').join('')
+      );
+    declinedPanel.querySelectorAll('[data-reassign]').forEach(btn => {
+      btn.onclick = () => { const t = ALL_TICKETS.find(x=>x.id===btn.dataset.reassign); if (t) enterReassignMode(t); };
+    });
+  }
+
+  const active = ALL_TICKETS.filter(t=>ACTIVE_STATUSES.includes(t.status)).sort((a,b)=>a.createdAt-b.createdAt);
+  const listEl = document.getElementById('activeQueueList');
+  if (listEl){
+    listEl.innerHTML = active.length===0
+      ? '<div class="empty-state">No visitors queued yet — the lobby will create the first ticket of the day.</div>'
+      : active.map(t => {
+          const pillClass = t.status==='waiting' ? 'pill-waiting' : (t.status==='accepted' ? 'pill-accepted' : (t.status==='transfer_pending' ? 'pill-transfer' : 'pill-serving'));
+          const pillLabel = t.status==='waiting' ? 'Waiting' : (t.status==='accepted' ? 'Accepted' : (t.status==='transfer_pending' ? 'Transferring' : 'Serving'));
+          return '<div class="ticket-row">' +
+            '<span class="code" style="color:var(--accent);">'+t.dept+'-'+pad3(t.number)+'</span>' +
+            '<span class="pill '+pillClass+'">'+pillLabel+'</span>' +
+            '<span class="meta"><span class="reason">'+esc(t.reason)+(t.officer ? ' · '+esc(t.officer) : '')+(t.placeOfDuty ? ' · '+esc(t.placeOfDuty) : '')+'</span></span>' +
+            '<span class="timer live-timer" data-start="'+t.createdAt+'">'+formatDuration(Date.now()-t.createdAt)+'</span>' +
+            '<button class="btn btn-ghost btn-sm" data-reprint="'+t.id+'" title="Reprint ticket">🖨️</button>' +
+            '<button class="btn btn-ghost btn-sm" data-cancel="'+t.id+'" title="Visitor left / cancel">✕</button>' +
+          '</div>';
+        }).join('');
+    listEl.querySelectorAll('[data-reprint]').forEach(btn => {
+      btn.onclick = () => { const t = ALL_TICKETS.find(x=>x.id===btn.dataset.reprint); if (t) printTicket(t); };
+    });
+    listEl.querySelectorAll('[data-cancel]').forEach(btn => {
+      btn.onclick = () => {
+        if (confirm('Cancel this queue entry? Use this only if the visitor left without being served.')){
+          DataLayer.updateTicket(btn.dataset.cancel, { status:'cancelled', doneAt: Date.now() });
+        }
+      };
+    });
+  }
+}
+
+/* ============================================================
+   DEPARTMENT VIEW
+   ============================================================ */
+function departmentPickerSkeleton(){
+  return '<div class="dept-picker-grid">' +
+    '<div class="dept-picker-hint">Which desk is this?</div>' +
+    DEPTS.map(d =>
+      '<button class="dept-picker-card" data-pick="'+d.code+'" type="button">' +
+        '<span class="code" style="color:var(--dept-'+d.code.toLowerCase()+');">'+d.code+'</span>' +
+        '<span class="name">'+d.name+'</span>' +
+      '</button>').join('') +
+  '</div>';
+}
+function departmentSkeleton(){
+  return (
+  '<div class="dept-head">' +
+    '<h1>'+deptName(currentDept)+'</h1>' +
+    '<div id="deptAvailBox"></div>' +
+  '</div>' +
+  '<div id="deptIncoming"></div>' +
+  '<div id="deptAcceptedWrap" hidden>' +
+    '<div class="section-title">Accepted — waiting to be called</div>' +
+    '<div id="deptAccepted"></div>' +
+  '</div>' +
+  '<div class="section-title">Currently serving</div>' +
+  '<div id="deptServing"></div>'
+  );
+}
+function renderDeptAvailBox(){
+  const box = document.getElementById('deptAvailBox');
+  if (!box || !currentDept) return;
+  const on = isDeptAvailable(currentDept);
+  box.innerHTML =
+    '<button class="avail-pill '+(on?'on':'off')+'" id="availToggleBtn" title="Click to mark yourself '+(on?'away':'available')+'">' +
+      '<span class="dot"></span>'+(on ? 'Available' : 'Away') +
+    '</button>';
+  document.getElementById('availToggleBtn').onclick = () => {
+    DataLayer.setDeptAvailable(currentDept, !isDeptAvailable(currentDept));
+  };
+}
+function wireDepartmentPickerHandlers(){
+  document.querySelectorAll('[data-pick]').forEach(btn => {
+    btn.onclick = () => { currentDept = btn.dataset.pick; safeSet('slq_dept', currentDept); mountView(); };
+  });
+}
+
+function updateDepartmentDynamic(){
+  if (!currentDept) return;
+  renderDeptAvailBox();
+  const today = ALL_TICKETS;
+  const incomingFresh = today.filter(t => t.dept===currentDept && t.status==='waiting');
+  const incomingTransfer = today.filter(t => t.status==='transfer_pending' && t.transferToDept===currentDept);
+  const pendingOut = today.filter(t => t.status==='transfer_pending' && t.transferFromDept===currentDept);
+  const serving = today.filter(t => t.dept===currentDept && t.status==='serving').sort((a,b)=>(a.calledAt||a.acceptedAt||0)-(b.calledAt||b.acceptedAt||0));
+  // Accepted on a desk app and lined up, not called yet. Only shows when there are any.
+  const accepted = today.filter(t => t.dept===currentDept && t.status==='accepted').sort((a,b)=>(a.acceptedAt||0)-(b.acceptedAt||0));
+
+  const incomingEl = document.getElementById('deptIncoming');
+  let html = '';
+  incomingFresh.forEach(t => { html += alertCardHtml(t,false); });
+  incomingTransfer.forEach(t => { html += alertCardHtml(t,true); });
+  pendingOut.forEach(t => { html += pendingCardHtml(t); });
+  incomingEl.innerHTML = html || '<div class="empty-state">No new arrivals right now.</div>';
+
+  wireAlertCardHandlers(incomingEl);
+  // The "waiting for X to respond" card lives in this same area and carries the
+  // Cancel-transfer button, whose handler is in wireServeCardHandlers.
+  wireServeCardHandlers(incomingEl);
+
+  const acceptedWrap = document.getElementById('deptAcceptedWrap');
+  const acceptedEl = document.getElementById('deptAccepted');
+  acceptedWrap.hidden = accepted.length===0;
+  acceptedEl.innerHTML = accepted.map(t => acceptedCardHtml(t)).join('');
+  wireServeCardHandlers(acceptedEl);
+
+  const servingEl = document.getElementById('deptServing');
+  servingEl.innerHTML = serving.length===0
+    ? '<div class="empty-state">Nobody currently at the counter.</div>'
+    : serving.map(t => serveCardHtml(t)).join('');
+  wireServeCardHandlers(servingEl);
+}
+
+function visitorMainLine(t){
+  return '<div class="line">'+(t.officer ? '<strong>'+esc(t.officer)+'</strong> · ' : '')+esc(t.reason)+'</div>' +
+    (t.placeOfDuty ? '<div class="line" style="font-size:11.5px;">Place of duty: '+esc(t.placeOfDuty)+'</div>' : '');
+}
+function alertCardHtml(t, isTransfer){
+  const tag = isTransfer ? 'INCOMING TRANSFER · from ' + deptName(t.transferFromDept) : 'NEW VISITOR';
+  return '<div class="alert-card '+(isTransfer?'transfer':'')+'" data-id="'+t.id+'">' +
+    '<div class="code">'+t.dept+'-'+pad3(t.number)+'</div>' +
+    '<div class="info">' +
+      '<div class="tag">'+tag+'</div>' +
+      visitorMainLine(t) +
+    '</div>' +
+    '<div class="actions">' +
+      '<button class="btn btn-primary btn-sm" data-accept="'+t.id+'" data-transfer="'+(isTransfer?'1':'0')+'">Accept</button>' +
+      '<button class="btn btn-danger btn-sm" data-decline="'+t.id+'" data-transfer="'+(isTransfer?'1':'0')+'">Decline</button>' +
+    '</div>' +
+  '</div>';
+}
+function pendingCardHtml(t){
+  return '<div class="pending-card" data-id="'+t.id+'">' +
+    '<div class="code">'+t.dept+'-'+pad3(t.number)+'</div>' +
+    '<div class="spin"></div>' +
+    '<div class="info">Waiting for <strong>'+esc(deptName(t.transferToDept))+'</strong> to respond&hellip;</div>' +
+    '<button class="btn btn-ghost btn-sm" data-cancel-transfer="'+t.id+'">Cancel transfer</button>' +
+  '</div>';
+}
+function serveCardHtml(t){
+  return '<div class="serve-card" data-id="'+t.id+'">' +
+    '<div class="code">'+t.dept+'-'+pad3(t.number)+'</div>' +
+    '<div class="info">' +
+      visitorMainLine(t) +
+      (t.transferHistory && t.transferHistory.length ? '<div class="line" style="font-size:11.5px;">Transferred from '+esc((t.transferHistory[t.transferHistory.length-1].from)||'')+'</div>' : '') +
+    '</div>' +
+    '<div class="timer-box"><div class="t live-timer" data-start="'+t.createdAt+'">'+formatDuration(Date.now()-t.createdAt)+'</div><div class="l">In building</div></div>' +
+    '<div class="actions">' +
+      '<button class="btn btn-sm" data-call-again="'+t.id+'" title="Flash and ding this number on the lobby monitor again">🔔 Call again</button>' +
+      '<button class="btn btn-sm" data-transfer-open="'+t.id+'">Transfer</button>' +
+      '<button class="btn btn-primary btn-sm" data-done="'+t.id+'">Done</button>' +
+    '</div>' +
+  '</div>';
+}
+
+// A ticket a desk has accepted (typically from the desktop desk app) and lined
+// up; it becomes "serving" — and is announced on the monitor — when called.
+function acceptedCardHtml(t){
+  return '<div class="serve-card" data-id="'+t.id+'">' +
+    '<div class="code">'+t.dept+'-'+pad3(t.number)+'</div>' +
+    '<div class="info">' + visitorMainLine(t) + '</div>' +
+    '<div class="timer-box"><div class="t live-timer" data-start="'+t.createdAt+'">'+formatDuration(Date.now()-t.createdAt)+'</div><div class="l">In building</div></div>' +
+    '<div class="actions">' +
+      '<button class="btn btn-sm" data-transfer-open="'+t.id+'">Transfer</button>' +
+      '<button class="btn btn-primary btn-sm" data-call="'+t.id+'">🔔 Call</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function wireAlertCardHandlers(container){
+  container.querySelectorAll('[data-accept]').forEach(btn => {
+    btn.onclick = async () => {
+      const t = ALL_TICKETS.find(x=>x.id===btn.dataset.accept);
+      if (!t) return;
+      if (btn.dataset.transfer==='1'){
+        const newNumber = nextAvailable(ALL_TICKETS, currentDept);
+        if (newNumber==null){ alert('No queue numbers are free in your department right now. Please finish or free one up first.'); return; }
+        const history = (t.transferHistory||[]).slice();
+        history.push({ from:t.transferFromDept, fromNumber:t.number, to:currentDept, toNumber:newNumber, at:Date.now(), action:'transfer_accepted' });
+        const deptsQueuedFor = (t.deptsQueuedFor||[]).slice();
+        if (!deptsQueuedFor.includes(currentDept)) deptsQueuedFor.push(currentDept);
+        await DataLayer.updateTicket(t.id, {
+          dept: currentDept, number: newNumber, status:'serving', acceptedAt: Date.now(),
+          transferToDept:null, transferFromDept:null, transferRequestedAt:null, transferPrevStatus:null,
+          transferHistory: history, deptsQueuedFor
+        });
+      } else {
+        await DataLayer.updateTicket(t.id, { status:'serving', acceptedAt: Date.now() });
+      }
+    };
+  });
+  container.querySelectorAll('[data-decline]').forEach(btn => {
+    btn.onclick = () => {
+      const t = ALL_TICKETS.find(x=>x.id===btn.dataset.decline);
+      if (!t) return;
+      const isTransfer = btn.dataset.transfer==='1';
+      openDeclineModal(t, isTransfer);
+    };
+  });
+}
+function wireServeCardHandlers(container){
+  container.querySelectorAll('[data-done]').forEach(btn => {
+    btn.onclick = () => { DataLayer.updateTicket(btn.dataset.done, { status:'done', doneAt: Date.now() }); };
+  });
+  container.querySelectorAll('[data-call]').forEach(btn => {
+    btn.onclick = () => { DataLayer.updateTicket(btn.dataset.call, { status:'serving', calledAt: Date.now() }); };
+  });
+  container.querySelectorAll('[data-call-again]').forEach(btn => {
+    btn.onclick = () => { DataLayer.updateTicket(btn.dataset.callAgain, { calledAgainAt: Date.now() }); };
+  });
+  container.querySelectorAll('[data-transfer-open]').forEach(btn => {
+    btn.onclick = () => { const t = ALL_TICKETS.find(x=>x.id===btn.dataset.transferOpen); if (t) openTransferModal(t); };
+  });
+  container.querySelectorAll('[data-cancel-transfer]').forEach(btn => {
+    btn.onclick = () => {
+      const t = ALL_TICKETS.find(x=>x.id===btn.dataset.cancelTransfer);
+      if (!t) return;
+      const history = (t.transferHistory||[]).slice();
+      history.push({ from:currentDept, to:t.transferToDept, at:Date.now(), action:'transfer_cancelled' });
+      // go back to whatever it was before the transfer (serving, or accepted if it hadn't been called yet)
+      DataLayer.updateTicket(t.id, { status:t.transferPrevStatus||'serving', transferPrevStatus:null, transferToDept:null, transferFromDept:null, transferRequestedAt:null, transferHistory:history });
+    };
+  });
+}
+
+function openDeclineModal(t, isTransfer){
+  openModal(
+    '<h3>Decline visitor '+t.dept+'-'+pad3(t.number)+'</h3>' +
+    '<p class="sub">Let the lobby know why this visitor is being redirected.</p>' +
+    '<label class="field-label" for="declineReasonInput">Reason for declining</label>' +
+    '<textarea id="declineReasonInput" placeholder="e.g. Wrong department, needs Billing instead"></textarea>' +
+    '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" id="declineCancelBtn">Back</button>' +
+      '<button class="btn btn-danger" id="declineConfirmBtn" disabled>Decline</button>' +
+    '</div>',
+    box => {
+      const input = box.querySelector('#declineReasonInput');
+      const confirmBtn = box.querySelector('#declineConfirmBtn');
+      input.addEventListener('input', () => confirmBtn.disabled = input.value.trim().length===0);
+      box.querySelector('#declineCancelBtn').onclick = closeModal;
+      confirmBtn.onclick = async () => {
+        const reason = input.value.trim();
+        if (!reason) return;
+        const history = (t.transferHistory||[]).slice();
+        if (isTransfer){
+          history.push({ from:t.transferFromDept, to:currentDept, at:Date.now(), action:'transfer_declined', reason });
+          await DataLayer.updateTicket(t.id, { status:t.transferPrevStatus||'serving', transferPrevStatus:null, transferToDept:null, transferFromDept:null, transferRequestedAt:null, transferHistory:history });
+        } else {
+          history.push({ from:currentDept, to:null, at:Date.now(), action:'declined', reason });
+          await DataLayer.updateTicket(t.id, { status:'declined', declineReason:reason, declinedByDept:currentDept, declinedAt:Date.now(), transferHistory:history });
+        }
+        closeModal();
+      };
+    }
+  );
+}
+
+function openTransferModal(t){
+  const targets = DEPTS.filter(d => d.code!==currentDept);
+  openModal(
+    '<h3>Transfer '+t.dept+'-'+pad3(t.number)+'</h3>' +
+    '<p class="sub">Send this visitor to another office. Their number keeps counting the whole time they&rsquo;re in the building.</p>' +
+    '<div class="dept-pick-list">' +
+      targets.map((d,i) =>
+        '<label class="dept-pick-row"><input type="radio" name="xferTarget" value="'+d.code+'" '+(i===0?'checked':'')+'> '+d.name+'</label>'
+      ).join('') +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn btn-ghost" id="xferCancelBtn">Cancel</button>' +
+      '<button class="btn btn-primary" id="xferConfirmBtn">Send Transfer Request</button>' +
+    '</div>',
+    box => {
+      box.querySelector('#xferCancelBtn').onclick = closeModal;
+      box.querySelector('#xferConfirmBtn').onclick = async () => {
+        const sel = box.querySelector('input[name=xferTarget]:checked');
+        if (!sel) return;
+        await DataLayer.updateTicket(t.id, {
+          transferPrevStatus: t.status, status:'transfer_pending', transferToDept: sel.value, transferFromDept: currentDept, transferRequestedAt: Date.now()
+        });
+        closeModal();
+      };
+    }
+  );
+}
+
+/* ============================================================
+   MONITOR VIEW
+   ============================================================ */
+function monitorSkeleton(){
+  return (
+  '<div class="monitor-head"><h1>Lobby Monitor</h1></div>' +
+  '<div class="monitor-grid">' +
+    MONITOR_ORDER.map(code =>
+      '<div class="mon-col" data-dept="'+code+'">' +
+        '<div class="mon-col-head"><span class="lead"><span class="dept-dot" data-dept="'+code+'"></span><span class="name">'+deptName(code)+'</span></span><span data-slot="avail"></span></div>' +
+        '<div class="now-serving" data-slot="hero"></div>' +
+        '<div class="mon-section">' +
+          '<div class="mon-section-head"><span class="t">Serving</span><span class="c" data-slot="serving-count"></span></div>' +
+          '<div class="mon-numbers" data-slot="serving-list"></div>' +
+        '</div>' +
+        '<div class="mon-section">' +
+          '<div class="mon-section-head"><span class="t">Waiting</span><span class="c" data-slot="waiting-count"></span></div>' +
+          '<div class="mon-numbers" data-slot="waiting-list"></div>' +
+        '</div>' +
+        '<div class="mon-done-row" data-slot="done"></div>' +
+      '</div>').join('') +
+  '</div>'
+  );
+}
+function updateMonitorDynamic(){
+  MONITOR_ORDER.forEach(code => {
+    const col = document.querySelector('.mon-col[data-dept="'+code+'"]');
+    if (!col) return;
+    // SERVING = numbers a desk has called; the most recently called one is NOW SERVING.
+    const servingNow = ALL_TICKETS.filter(t => t.dept===code && isCalledTicket(t)).sort((a,b)=>(b.calledAt||b.acceptedAt||0)-(a.calledAt||a.acceptedAt||0));
+    // WAITING = numbers a desk has accepted and lined up but not called yet, in
+    // the order they'll be called. (Visitors a desk hasn't answered yet aren't
+    // shown — they're still ringing on the desk, not lined up.)
+    const waitingList = ALL_TICKETS.filter(t => t.dept===code && isAcceptedTicket(t)).sort((a,b)=>(a.acceptedAt||0)-(b.acceptedAt||0));
+    const doneTotal = ALL_TICKETS.filter(t => t.status==='done' && t.dept===code).length;
+
+    const on = isDeptAvailable(code);
+    col.querySelector('[data-slot="avail"]').innerHTML =
+      '<span class="avail-dot '+(on?'on':'off')+'" title="'+(on?'Available':'Away')+'"></span>';
+
+    const calling = recentlyCalledUntil[code] && recentlyCalledUntil[code] > Date.now();
+    col.classList.toggle('calling', calling);
+
+    const hero = col.querySelector('[data-slot="hero"]');
+    hero.innerHTML = '<div class="label">Now serving</div>' +
+      '<div class="big">'+(servingNow[0] ? pad3(servingNow[0].number) : '—')+'</div>';
+
+    // Full rosters — every number, not a truncated "+N more" summary, since
+    // a department can genuinely have a dozen or more active at once.
+    col.querySelector('[data-slot="serving-count"]').textContent = servingNow.length ? String(servingNow.length) : '';
+    col.querySelector('[data-slot="serving-list"]').innerHTML = servingNow.map((t,i) =>
+      '<span class="mon-chip serving'+(i===0?' latest':'')+'">'+pad3(t.number)+'</span>'
+    ).join('');
+
+    col.querySelector('[data-slot="waiting-count"]').textContent = waitingList.length ? String(waitingList.length) : '';
+    col.querySelector('[data-slot="waiting-list"]').innerHTML = waitingList.map(t =>
+      '<span class="mon-chip waiting">'+pad3(t.number)+'</span>'
+    ).join('');
+
+    col.querySelector('[data-slot="done"]').innerHTML =
+      '<span class="n">'+doneTotal+'</span><span class="l">Done today</span>';
+  });
+  fitKiosk();
+}
+// Lobby display only (?kiosk=monitor): scale the whole board up to the largest size that fits the TV
+// without scrolling — readable from across the room — and back down if a department has a long list.
+function fitKiosk(){
+  if (!KIOSK_MONITOR) return;
+  const root = document.getElementById('viewRoot'), bar = document.getElementById('topbar');
+  if (!root || !bar) return;
+  root.style.zoom = bar.style.zoom = 1;                      // measure at natural size
+  const natural = bar.offsetHeight + root.scrollHeight;
+  const f = Math.max(0.6, Math.min(3, window.innerWidth / 1360, window.innerHeight / (natural + 8)));
+  root.style.zoom = bar.style.zoom = Math.round(f * 100) / 100;
+}
+if (KIOSK_MONITOR){ window.addEventListener('resize', fitKiosk); setInterval(fitKiosk, 2000); }
+
+/* ============================================================
+   HISTORY VIEW — a one-time (not live) lookup of any past business day,
+   independent of the live ALL_TICKETS subscription the other views share.
+   ============================================================ */
+let historyDateKey = todayKey();
+let historyDeptFilter = 'ALL';
+let historyTickets = [];
+let historyLoading = false;
+
+// The chain of departments a ticket actually passed through, in order —
+// e.g. ['OPS','BIL'] for a single transfer, just ['MGR'] for none.
+function transferTrail(t){
+  const trail = [t.originalDept || t.dept];
+  (t.transferHistory||[]).forEach(h => {
+    if (h.to && h.action !== 'transfer_cancelled' && h.action !== 'transfer_declined' && h.action !== 'declined' && trail[trail.length-1] !== h.to){
+      trail.push(h.to);
+    }
+  });
+  if (trail[trail.length-1] !== t.dept) trail.push(t.dept);
+  return trail;
+}
+function historyStatusLabel(t){
+  if (t.status==='done') return { cls:'pill-done', label:'Done' };
+  if (t.status==='cancelled') return { cls:'pill-declined', label:'Cancelled' };
+  if (t.status==='declined') return { cls:'pill-declined', label:'Declined' };
+  if (t.status==='accepted') return { cls:'pill-accepted', label:'Accepted' };
+  return { cls:'pill-serving', label:'Still in building' };
+}
+
+function historySkeleton(){
+  return (
+  '<div class="history-toolbar">' +
+    '<div class="history-daynav">' +
+      '<button class="btn btn-sm" id="historyPrevBtn" title="Previous day">&larr;</button>' +
+      '<input type="date" id="historyDateInput" value="'+historyDateKey+'">' +
+      '<button class="btn btn-sm" id="historyNextBtn" title="Next day">&rarr;</button>' +
+    '</div>' +
+    '<select id="historyDeptFilter">' +
+      '<option value="ALL">All departments</option>' +
+      DEPTS.map(d => '<option value="'+d.code+'">'+esc(d.name)+'</option>').join('') +
+    '</select>' +
+    '<button class="btn btn-sm" id="historyRefreshBtn">&#8635; Refresh</button>' +
+  '</div>' +
+  '<div class="history-summary" id="historySummary"></div>' +
+  '<div id="historyTableWrap"></div>'
+  );
+}
+
+function wireHistoryHandlers(){
+  const dateInput = document.getElementById('historyDateInput');
+  dateInput.onchange = () => { historyDateKey = dateInput.value || todayKey(); loadHistoryForDate(); };
+  document.getElementById('historyPrevBtn').onclick = () => { shiftHistoryDate(-1); };
+  document.getElementById('historyNextBtn').onclick = () => { shiftHistoryDate(1); };
+  document.getElementById('historyDeptFilter').value = historyDeptFilter;
+  document.getElementById('historyDeptFilter').onchange = e => { historyDeptFilter = e.target.value; renderHistoryTable(); };
+  document.getElementById('historyRefreshBtn').onclick = () => loadHistoryForDate();
+  loadHistoryForDate();
+}
+function shiftHistoryDate(deltaDays){
+  const [y,m,d] = historyDateKey.split('-').map(Number);
+  const dt = new Date(y, m-1, d + deltaDays);
+  historyDateKey = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  const dateInput = document.getElementById('historyDateInput');
+  if (dateInput) dateInput.value = historyDateKey;
+  loadHistoryForDate();
+}
+async function loadHistoryForDate(){
+  historyLoading = true;
+  renderHistoryTable();
+  try{
+    historyTickets = await DataLayer.fetchByDate(historyDateKey);
+  } catch(e){
+    console.error('Failed to load history for', historyDateKey, e);
+    historyTickets = [];
+  }
+  historyLoading = false;
+  renderHistoryTable();
+}
+function renderHistoryTable(){
+  const wrap = document.getElementById('historyTableWrap');
+  const summary = document.getElementById('historySummary');
+  if (!wrap || !summary) return;
+
+  if (historyLoading){
+    wrap.innerHTML = '<div class="empty-state">Loading&hellip;</div>';
+    summary.textContent = '';
+    return;
+  }
+
+  const rows = historyTickets
+    .filter(t => historyDeptFilter==='ALL' || t.dept===historyDeptFilter || (t.transferHistory||[]).some(h=>h.to===historyDeptFilter) || t.originalDept===historyDeptFilter)
+    .sort((a,b) => a.createdAt - b.createdAt);
+
+  summary.innerHTML = '<strong>'+rows.length+'</strong> visitor'+(rows.length===1?'':'s')+' logged &middot; '+esc(formatDay(historyDateKey));
+
+  if (rows.length===0){
+    wrap.innerHTML = '<div class="empty-state">No visitors recorded for this day.</div>';
+    return;
+  }
+
+  wrap.innerHTML =
+    '<div class="history-table-wrap"><table class="history-table"><thead><tr>' +
+      '<th>Code</th><th>Time in</th><th>Time out</th><th>Length of stay</th>' +
+      '<th>Reason</th><th>Officer</th><th>Place of duty</th><th>Transfers</th><th>Status</th>' +
+    '</tr></thead><tbody>' +
+    rows.map(t => {
+      const st = historyStatusLabel(t);
+      const endTime = t.doneAt || Date.now();
+      const stayMs = endTime - t.createdAt;
+      const trail = transferTrail(t);
+      const trailHtml = trail.length>1
+        ? '<span class="transfer-trail">'+trail.map((d,i)=>(i>0?'<span class="arrow">&rarr;</span>':'')+'<span class="dept-badge" data-dept="'+d+'">'+d+'</span>').join('')+'</span>'
+        : '<span class="muted">&mdash;</span>';
+      return '<tr>' +
+        '<td class="code">'+t.dept+'-'+pad3(t.number)+'</td>' +
+        '<td>'+esc(new Date(t.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}))+'</td>' +
+        '<td>'+(t.doneAt ? esc(new Date(t.doneAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})) : '<span class="muted">&mdash;</span>')+'</td>' +
+        '<td class="stay">'+formatDuration(stayMs)+'</td>' +
+        '<td class="wrap">'+esc(t.reason||'')+'</td>' +
+        '<td class="wrap">'+(t.officer ? esc(t.officer) : '<span class="muted">&mdash;</span>')+'</td>' +
+        '<td class="wrap">'+(t.placeOfDuty ? esc(t.placeOfDuty) : '<span class="muted">&mdash;</span>')+'</td>' +
+        '<td>'+trailHtml+'</td>' +
+        '<td><span class="pill '+st.cls+'">'+st.label+'</span></td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table></div>';
+}
+
+/* ============================================================
+   WIRING PER SKELETON
+   ============================================================ */
+function wireStaticHandlers(){
+  if (currentView==='reception') wireReceptionHandlers();
+  else if (currentView==='department' && !currentDept) wireDepartmentPickerHandlers();
+}
+
+/* ============================================================
+   TIMER TICK (independent of data snapshots)
+   ============================================================ */
+function tickTimers(){
+  document.querySelectorAll('.live-timer').forEach(el => {
+    const start = Number(el.dataset.start);
+    if (start) el.textContent = formatDuration(Date.now() - start);
+  });
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+async function boot(){
+  loadAnnouncementSound(); // start fetching/decoding early, don't block boot on it
+  await DataLayer.init();
+  document.getElementById('localBanner').hidden = !DataLayer.isLocal();
+  mountView();
+  // Today's tickets — re-subscribed when the 6:00 AM business day rolls over, so
+  // a screen left running overnight (the lobby monitor) never stays on yesterday.
+  let todayUnsub = null, todayKeySubscribed = null;
+  function ensureTodaySubscription(){
+    const k = todayKey();
+    if (k === todayKeySubscribed) return;
+    const rollover = todayUnsub !== null;
+    if (todayUnsub) todayUnsub();
+    todayKeySubscribed = k;
+    if (rollover){ ALL_TICKETS = []; onDataChanged(); }
+    todayUnsub = DataLayer.subscribeToday(tickets => { ALL_TICKETS = tickets; detectCalledTransitions(tickets); onDataChanged(); });
+  }
+  ensureTodaySubscription();
+  setInterval(ensureTodaySubscription, 30000);
+  DataLayer.subscribeDeptStatus(rows => {
+    DEPT_STATUS = {};
+    rows.forEach(r => { DEPT_STATUS[r.id] = r; });
+    onDataChanged();
+  });
+  DataLayer.subscribeVisitReasons(list => {
+    EXTRA_REASONS = list;
+    if (currentView==='reception') renderReasonOptions();
+  });
+  setInterval(tickTimers, 1000);
+  setInterval(updateClock, 1000);
+  updateClock();
+}
+boot();
+</script>
+</body>
+</html>
